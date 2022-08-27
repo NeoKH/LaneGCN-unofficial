@@ -76,6 +76,8 @@ def ref_copy(data):
 
 def collate_fn(batch):
     batch = from_numpy(batch)
+    batch = to_float32(batch)
+    batch = to_long(batch)
     return_batch = dict()
     # Batching by use a list for non-fixed size
     for key in batch[0].keys():
@@ -122,6 +124,16 @@ def to_numpy(data):
         data = data.numpy()
     return data
 
+def to_float32(data):
+    if isinstance(data, dict):
+        for key in data.keys():
+            data[key] = to_float32(data[key])
+    if isinstance(data, list) or isinstance(data, tuple):
+        data = [to_float32(x) for x in data]
+    if isinstance(data, torch.Tensor) and data.dtype in [torch.float64,torch.float16,torch.double]:
+        data = data.type(torch.float32)
+    return data
+
 def to_int16(data):
     if isinstance(data, dict):
         for key in data.keys():
@@ -138,7 +150,7 @@ def to_long(data):
             data[key] = to_long(data[key])
     if isinstance(data, list) or isinstance(data, tuple):
         data = [to_long(x) for x in data]
-    if torch.is_tensor(data) and data.dtype == torch.int16:
+    if torch.is_tensor(data) and data.dtype in [torch.int16,torch.int32]:
         data = data.long()
     return data
 

@@ -44,11 +44,11 @@ def increment_path(path, exist_ok=False, sep='', mkdir=False):
         dir.mkdir(parents=True, exist_ok=True)  # make directory
     return path
 
-def save_ckpt(net, opt, save_dir, epoch):
+def save_ckpt(net, opt, save_dir, epoch,ddp=False):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    state_dict = net.state_dict()
+    state_dict = net.module.state_dict() if ddp else net.state_dict()
     for key in state_dict.keys():
         state_dict[key] = state_dict[key].cpu()
 

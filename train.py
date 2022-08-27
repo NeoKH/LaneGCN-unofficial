@@ -54,21 +54,19 @@ def main(args):
     init_seeds(1+RANK)
 
     ## DDP mode
-    device = select_device(args.device, batch_size=config["batch_size"]) #兜底条款
+    device = select_device(args.device,rank = LOCAL_RANK, batch_size=config["batch_size"]) #兜底条款
     if LOCAL_RANK != -1:
         assert torch.cuda.device_count() > LOCAL_RANK, 'insufficient CUDA devices for DDP command'
         assert config["batch_size"] % WORLD_SIZE == 0, '--batch-size must be multiple of CUDA device count'
         torch.cuda.set_device(LOCAL_RANK)
         device = torch.device('cuda', LOCAL_RANK)
-        print(device)
         dist.init_process_group(backend="nccl" if dist.is_nccl_available() else "gloo")
     cuda = device.type != 'cpu'
-
     model = Net(config).to(device)
     if cuda and RANK != -1:
         model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK)
-    loss = Loss(config)#.to(device)
-    post_process = PostProcess(config)#.to(device)
+    loss = Loss(config).to(device)
+    post_process = PostProcess(config).to(device)
     
     params = model.parameters()
     opt = Optimizer(params,config)
@@ -83,11 +81,11 @@ def main(args):
     #     if args.resume:
     #         config["start_epoch"] = ckpt["start_epoch"]
     #         opt.load_state_dict(ckpt["opt_state"])
-
+    
     train_loader,train_dataset = create_dataloader(
         data_type = "train",
         batch_size = config["batch_size"]//WORLD_SIZE,
-        num_workers = config["workers"],
+        workers = config["workers"],
         rank = LOCAL_RANK,
         shuffle = True,
         config = data_config
@@ -97,12 +95,12 @@ def main(args):
         val_loader, _ = create_dataloader(
             data_type = "val",
             batch_size = config["batch_size"]//WORLD_SIZE * 2 ,
-            num_workers = config["workers"],
+            workers = config["workers"],
             rank = -1, # single GPU or cpu
             shuffle = False,
             config = data_config
         )
-
+        print("Start training !")
     metrics = dict()
     for epoch in range(config["start_epoch"], config["epochs"]+1):
         model.train()
@@ -118,7 +116,7 @@ def main(args):
 
         start_time = time.time()
         for i, data in enumerate(train_loader):
-            data = dict(to_device(data))
+            data = dict(to_device(data,device=device))
 
             output =  model(data)
             loss_out = loss(output,data)
@@ -140,7 +138,7 @@ def main(args):
             model.eval()
             metrics = dict()
             for i,data in enumerate(val_loader):
-                data = dict(to_device(data))
+                data = dict(to_device(data,device=device))
                 with torch.no_grad():
                     output = model(data)
                     loss_out = loss(output,data)
@@ -151,7 +149,7 @@ def main(args):
         
             # save checkpoint
             if epoch > 0 or epoch >= config["epochs"]:
-                save_ckpt(model, opt, save_dir, epoch)
+                save_ckpt(model, opt, save_dir, epoch,ddp=True)
 
     torch.cuda.empty_cache()
     if WORLD_SIZE > 1 and RANK == 0:

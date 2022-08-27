@@ -21,7 +21,7 @@ from skimage.transform import rotate
 
 
 class PreprocessDataset(Dataset):
-    def __init__(self, data_type ,config):
+    def __init__(self, data_type ,config, flag=False):
         self.data_type= data_type if data_type!="test" else "test_obs"
         self.raw_path = os.path.join(config["raw_path"],self.data_type,"data")
         self.save_path = check_path(os.path.join(config["save_path"],self.data_type))
@@ -309,8 +309,7 @@ class PreprocessDataset(Dataset):
                 graph[k1][0][k2] = np.asarray(graph[k1][0][k2], np.int32)
         
         for key in ['pre', 'suc']:
-            if 'scales' in self.config and self.config['scales']:
-                graph[key] += self.dilated_nbrs(graph[key][0], graph['num_nodes'], self.config['num_scales'])
+            graph[key] += self.dilated_nbrs(graph[key][0], graph['num_nodes'], self.config['num_scales'])
         
         # out = self.get_left_right_ori(to_long(from_numpy(graph)), self.config['cross_dist'])
         out = self.get_left_right(graph, self.config['cross_dist'])
@@ -554,12 +553,15 @@ class PreprocessDataset(Dataset):
 
 class ArgoDataset(PreprocessDataset):
     def __init__(self, data_type, config):
-        super.__init__(ArgoDataset,data_type=data_type,config=config)
+        self.data_type= data_type if data_type!="test" else "test_obs"
+        self.save_path = os.path.join(config["save_path"],self.data_type)
+        assert os.path.exists(self.save_path)
+        # super(ArgoDataset,self).__init__(data_type=data_type,config=config)
         
     def __getitem__(self, idx):
         file_path = os.path.join(self.save_path,f"{idx}.pkl")
         with open(file_path,'rb') as f:
-            data = pickle.loads(f)
+            data = pickle.load(f)
         
         if self.data_type == "train" and self.config['rot_aug']:
             new_data = dict()
@@ -637,9 +639,9 @@ def preprocess(args):
                 pickle.dump(to_numpy(data[j]),f)
 
 def create_dataloader(data_type,batch_size,workers,rank,shuffle,config):
-    with torch_distributed_zero_first(rank):
-        dataset = ArgoDataset(data_type,config)
-    
+    # with torch_distributed_zero_first(rank):
+    #     dataset = ArgoDataset(data_type,config)
+    dataset = ArgoDataset(data_type,config)
     batch_size = min(batch_size, len(dataset))
     nw = min([os.cpu_count(), batch_size if batch_size > 1 else 0, workers])  # number of workers
     sampler = DistributedSampler(dataset,shuffle=shuffle) if rank != -1 else None

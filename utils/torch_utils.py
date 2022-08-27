@@ -22,10 +22,12 @@ def torch_distributed_zero_first(local_rank: int):
     Decorator to make all processes in distributed training wait for each local_master to do something.
     """
     if local_rank not in [-1, 0]:
-        dist.barrier(device_ids=[local_rank])
+        # dist.barrier(device_ids=[local_rank]) # PyTorch 1.8.0 or higher version
+        dist.barrier() 
     yield
     if local_rank == 0:
-        dist.barrier(device_ids=[0])
+        # dist.barrier(device_ids=[0]) # PyTorch 1.8.0 or higher version
+        dist.barrier()
 
 def gpu(data):
     """
@@ -53,7 +55,7 @@ def to_device(data,device):
         data = data.contiguous().to(device)
     return data
 
-def select_device(device='', batch_size=None):
+def select_device(device='',rank=-1, batch_size=None):
     # device = 'cpu' or '0' or '0,1,2,3'
     device = str(device).strip().lower().replace('cuda:', '')  # to string, 'cuda:0' to '0'
     cpu = device == 'cpu'
@@ -75,7 +77,8 @@ def select_device(device='', batch_size=None):
             s+=f"CUDA:{d} ({p.name}, {p.total_memory / 1024 ** 2}MB)\n"
     else:
         s += 'CPU\n'
-    print(s)
+    if rank in [-1,0]:
+        print(s)
     return torch.device('cuda:0' if cuda else 'cpu')
 
 def to_long(data):

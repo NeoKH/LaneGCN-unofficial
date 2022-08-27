@@ -258,6 +258,8 @@ class MapNet(nn.Module):
                 if key.startswith("pre") or key.startswith("suc"):
                     k1 = key[:3]
                     k2 = int(key[3:])
+                    print(k1)
+                    print(k2)
                     temp.index_add_(
                         0,
                         graph[k1][k2]["u"],
