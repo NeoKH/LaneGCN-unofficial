@@ -1,5 +1,10 @@
 import os
+import numpy as np
+import random
 import torch
+import torch.distributed as dist
+from contextlib import contextmanager
+
 
 def init_seeds(seed=0):
     # Initialize random number generator (RNG) seeds https://pytorch.org/docs/stable/notes/randomness.html
@@ -8,8 +13,19 @@ def init_seeds(seed=0):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
     cudnn.benchmark, cudnn.deterministic = (False, True) if seed == 0 else (True, False)
+
+@contextmanager
+def torch_distributed_zero_first(local_rank: int):
+    """
+    Decorator to make all processes in distributed training wait for each local_master to do something.
+    """
+    if local_rank not in [-1, 0]:
+        dist.barrier(device_ids=[local_rank])
+    yield
+    if local_rank == 0:
+        dist.barrier(device_ids=[0])
 
 def gpu(data):
     """
@@ -56,10 +72,10 @@ def select_device(device='', batch_size=None):
             assert batch_size % n == 0, f'batch-size {batch_size} not multiple of GPU count {n}'
         for i,d in enumerate(devices):
             p = torch.cuda.get_device_properties(i)
-            s+="CUDA:{d} ({p.name}, {p.total_memory / 1024 ** 2}MB)\n"
+            s+=f"CUDA:{d} ({p.name}, {p.total_memory / 1024 ** 2}MB)\n"
     else:
         s += 'CPU\n'
-    
+    print(s)
     return torch.device('cuda:0' if cuda else 'cpu')
 
 def to_long(data):
@@ -91,3 +107,4 @@ def load_pretrain(net, pretrain_dict):
                 value = value.data
             state_dict[key] = value
     net.load_state_dict(state_dict)
+

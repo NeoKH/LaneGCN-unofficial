@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
 # coding:utf8
-"""
-@copyright Copyright (C), 2022, 南京理工大学计算机科学与工程学院, 计算机应用技术
-@file      data.py
-@author    孔昊
-@date      2022-08-19
-@brief     
-@see       
-@details   
-"""
 import os
 import yaml
 import copy
@@ -18,7 +9,9 @@ import numpy as np
 import argparse
 from tqdm import tqdm
 from torch.utils.data import Dataset,DataLoader
-from utils.data import from_numpy,to_numpy,ref_copy
+from torch.utils.data.distributed import DistributedSampler
+from utils.data import from_numpy,to_numpy,ref_copy,collate_fn
+from utils.torch_utils import torch_distributed_zero_first
 from utils.general import check_path,ROOT
 from scipy import sparse
 
@@ -615,7 +608,6 @@ class ArgoDataset(PreprocessDataset):
     def __len__(self):
         return self.length
 
-
 def preprocess(args):
     """ use raw data to generate preprocess data """
 
@@ -643,6 +635,23 @@ def preprocess(args):
         for j in range(length):
             with open(f"{dataset.save_path}/{i*length+j}.pkl","wb") as f:
                 pickle.dump(to_numpy(data[j]),f)
+
+def create_dataloader(data_type,batch_size,workers,rank,shuffle,config):
+    with torch_distributed_zero_first(rank):
+        dataset = ArgoDataset(data_type,config)
+    
+    batch_size = min(batch_size, len(dataset))
+    nw = min([os.cpu_count(), batch_size if batch_size > 1 else 0, workers])  # number of workers
+    sampler = DistributedSampler(dataset,shuffle=shuffle) if rank != -1 else None
+    dataloader = DataLoader(
+                dataset,
+                batch_size=batch_size,
+                num_workers=nw,
+                sampler=sampler,
+                pin_memory=True,
+                collate_fn= collate_fn
+    )
+    return dataloader, dataset
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description="Data preprocess for argo forcasting dataset")

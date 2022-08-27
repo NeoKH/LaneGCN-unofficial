@@ -55,12 +55,12 @@ class Net(nn.Module):
 
     def forward(self, data: Dict) -> Dict[str, List[Tensor]]:
         # construct actor feature
-        actors, actor_idcs = actor_gather(gpu(data["feats"]))
-        actor_ctrs = gpu(data["ctrs"])
+        actors, actor_idcs = actor_gather(data["feats"])
+        actor_ctrs = data["ctrs"]
         actors = self.actor_net(actors)
 
         # construct map features
-        graph = graph_gather(to_long(gpu(data["graph"])))
+        graph = graph_gather(to_long(data["graph"]))
         nodes, node_idcs, node_ctrs = self.map_net(graph)
 
         # actor-map fusion cycle 
@@ -71,7 +71,7 @@ class Net(nn.Module):
 
         # prediction
         out = self.pred_net(actors, actor_idcs, actor_ctrs)
-        rot, orig = gpu(data["rot"]), gpu(data["orig"])
+        rot, orig = data["rot"], data["orig"]
         # transform prediction to world coordinates
         for i in range(len(out["reg"])):
             out["reg"][i] = torch.matmul(out["reg"][i], rot[i]) + orig[i].view(
@@ -736,7 +736,7 @@ class Loss(nn.Module):
         self.pred_loss = PredLoss(config)
 
     def forward(self, out: Dict, data: Dict) -> Dict:
-        loss_out = self.pred_loss(out, gpu(data["gt_preds"]), gpu(data["has_preds"]))
+        loss_out = self.pred_loss(out, data["gt_preds"], data["has_preds"])
         loss_out["loss"] = loss_out["cls_loss"] / (
             loss_out["num_cls"] + 1e-10
         ) + loss_out["reg_loss"] / (loss_out["num_reg"] + 1e-10)
@@ -776,14 +776,14 @@ class PostProcess(nn.Module):
             metrics[key] += post_out[key]
         return metrics
 
-    def display(self, metrics, dt, epoch, lr=None):
+    def display(self, metrics, dt, epoch, iter = None,lr=None, model_type="train"):
         """Every display-iters print training/val information"""
-        if lr is not None:
-            print("Epoch %3.3f, lr %.5f, time %3.2f" % (epoch, lr, dt))
+        if model_type=="train" :
+            print("Epoch %d, Iters: %d, lr %.5f, time %3.2f minutes" % (epoch, iter, lr , dt/ 60))
         else:
             print(
-                "************************* Validation, time %3.2f *************************"
-                % dt
+                "************************* Validation, Epoch: %d , time %3.2f hours *************************"
+                % (epoch,dt/3600)
             )
 
         cls = metrics["cls_loss"] / (metrics["num_cls"] + 1e-10)

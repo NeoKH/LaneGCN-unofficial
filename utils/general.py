@@ -52,7 +52,7 @@ def save_ckpt(net, opt, save_dir, epoch):
     for key in state_dict.keys():
         state_dict[key] = state_dict[key].cpu()
 
-    save_name = "%3.3f.ckpt" % epoch
+    save_name = "%02d.ckpt" % epoch
     torch.save(
         {"epoch": epoch, "state_dict": state_dict, "opt_state": opt.opt.state_dict()},
         os.path.join(save_dir, save_name),

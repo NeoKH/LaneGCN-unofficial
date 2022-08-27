@@ -141,3 +141,4 @@ def to_long(data):
     if torch.is_tensor(data) and data.dtype == torch.int16:
         data = data.long()
     return data
+
