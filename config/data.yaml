@@ -1,0 +1,9 @@
+cross_dist : 6
+cross_angle: 0.5 * np.pi
+pred_range :  [-100.0, 100.0, -100.0, 100.0]
+rot_aug : False
+num_scales : 6
+
+# path
+raw_path : "/hy-tmp/argoverse1/"
+save_path : "/hy-tmp/argoverse1/preprocess"

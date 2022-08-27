@@ -1,0 +1,38 @@
+# training config
+save_freq : 1.0
+display_iters : 100
+start_epoch : 0
+epochs : 36
+optimizer : "Adam"
+lr : [0.001, 0.0001]
+lr_epochs : [32]
+lr_func : StepLR(config["lr"], config["lr_epochs"])
+
+batch_size : 32
+workers : 4
+val_workers : 0
+
+
+# """Model"""
+rot_aug : False
+pred_range : [-100.0, 100.0, -100.0, 100.0]
+num_scales : 6
+n_actor : 128
+n_map : 128
+actor2map_dist : 7.0
+map2actor_dist : 6.0
+actor2actor_dist : 100.0
+pred_size : 30
+pred_step : 1
+num_preds : self.config["pred_size"] // self.config["pred_step"]
+num_mods : 6
+cls_coef : 1.0
+reg_coef : 1.0
+mgn : 0.2
+cls_th : 2.0
+cls_ignore : 0.2
+
+# path config
+save_dir : "./results/exp"
+
+
