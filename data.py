@@ -642,7 +642,7 @@ def preprocess(args):
                 continue
         for j in range(length):
             with open(f"{dataset.save_path}/{i*length+j}.pkl","wb") as f:
-                f = pickle.dump(to_numpy(data[j]))
+                pickle.dump(to_numpy(data[j]),f)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description="Data preprocess for argo forcasting dataset")
