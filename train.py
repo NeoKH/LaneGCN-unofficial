@@ -22,7 +22,7 @@ from torch.utils.data.distributed import DistributedSampler
 from models.lanegcn import Net, Loss, PostProcess
 from data import ArgoDataset
 from utils.log import Logger
-from utils.torch_utils import gpu, to_long, load_pretrain,select_device,to_device
+from utils.torch_utils import gpu, to_long, load_pretrain,select_device,to_device,init_seeds
 from utils.data import collate_fn
 from utils.optim import Optimizer, StepLR
 from utils.general import worker_init_fn, increment_path, save_ckpt,set_logging
@@ -48,18 +48,7 @@ def main(args):
     with open(args.data_config,"r",encoding="utf-8") as f:
         data_config = yaml.load(f,Loader=yaml.FullLoader)
     
-    # seed = 0
-    # torch.manual_seed(seed)
-    # torch.cuda.manual_seed(seed)
-    # np.random.seed(seed)
-    # random.seed(seed)
-
-    # torch.cuda.set_device(local_rank)
-    # dist.init_process_group(backend='nccl')
-
-    # torch.cuda.set_device(args.local_rank)
-    # dist.init_process_group(backend='nccl')
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    init_seeds(1+RANK)
 
     ## DDP mode
     device = select_device(args.device, batch_size=config["batch_size"])
