@@ -113,7 +113,7 @@ class PreprocessDataset(Dataset):
         return data
     
     def get_obj_feats(self, data):
-        orig = data['trajs'][0][19].copy().astype(np.float32)
+        orig = data['trajs'][0][19].copy().astype(float)
 
         if self.data_type=="train" and self.config['rot_aug']:
             theta = np.random.rand() * np.pi * 2.0
@@ -123,14 +123,14 @@ class PreprocessDataset(Dataset):
 
         rot = np.asarray([
             [np.cos(theta), -np.sin(theta)],
-            [np.sin(theta), np.cos(theta)]], np.float32)
+            [np.sin(theta), np.cos(theta)]], float)
 
         feats, ctrs, gt_preds, has_preds = [], [], [], []
         for traj, step in zip(data['trajs'], data['steps']):
             if 19 not in step:
                 continue
 
-            gt_pred = np.zeros((30, 2), np.float32)
+            gt_pred = np.zeros((30, 2), float)
             has_pred = np.zeros(30, bool)
             future_mask = np.logical_and(step >= 20, step < 50)
             post_step = step[future_mask] - 20
@@ -151,7 +151,7 @@ class PreprocessDataset(Dataset):
             step = step[i:]
             traj = traj[i:]
 
-            feat = np.zeros((20, 3), np.float32)
+            feat = np.zeros((20, 3), float)
             feat[step, :2] = np.matmul(rot, (traj - orig.reshape(-1, 2)).T).T
             feat[step, 2] = 1.0
 
@@ -166,9 +166,9 @@ class PreprocessDataset(Dataset):
             gt_preds.append(gt_pred)
             has_preds.append(has_pred)
 
-        feats = np.asarray(feats, np.float32)
-        ctrs = np.asarray(ctrs, np.float32)
-        gt_preds = np.asarray(gt_preds, np.float32)
+        feats = np.asarray(feats, float)
+        ctrs = np.asarray(ctrs, float)
+        gt_preds = np.asarray(gt_preds, float)
         has_preds = np.asarray(has_preds, bool)
 
         data['feats'] = feats
@@ -210,10 +210,10 @@ class PreprocessDataset(Dataset):
             ctrln = lane.centerline
             num_segs = len(ctrln) - 1
             
-            ctrs.append(np.asarray((ctrln[:-1] + ctrln[1:]) / 2.0, np.float32))
-            feats.append(np.asarray(ctrln[1:] - ctrln[:-1], np.float32))
+            ctrs.append(np.asarray((ctrln[:-1] + ctrln[1:]) / 2.0, float))
+            feats.append(np.asarray(ctrln[1:] - ctrln[:-1], float))
             
-            x = np.zeros((num_segs, 2), np.float32)
+            x = np.zeros((num_segs, 2), float)
             if lane.turn_direction == 'LEFT':
                 x[:, 0] = 1
             elif lane.turn_direction == 'RIGHT':
@@ -222,8 +222,8 @@ class PreprocessDataset(Dataset):
                 pass
             turn.append(x)
 
-            control.append(lane.has_traffic_control * np.ones(num_segs, np.float32))
-            intersect.append(lane.is_intersection * np.ones(num_segs, np.float32))
+            control.append(lane.has_traffic_control * np.ones(num_segs, float))
+            intersect.append(lane.is_intersection * np.ones(num_segs, float))
             
         node_idcs = []
         count = 0
@@ -356,14 +356,14 @@ class PreprocessDataset(Dataset):
             mask = np.logical_and(dt < 0, dt > -eval(self.config['cross_angle']))
             right_mask = np.logical_not(mask)
 
-        pre = np.zeros((num_lanes, num_lanes),dtype=np.float)
-        suc = np.zeros((num_lanes, num_lanes),dtype=np.float)
+        pre = np.zeros((num_lanes, num_lanes),dtype=float)
+        suc = np.zeros((num_lanes, num_lanes),dtype=float)
         pre[graph['pre_pairs'][:, 0], graph['pre_pairs'][:, 1]] = 1
         suc[graph['suc_pairs'][:, 0], graph['suc_pairs'][:, 1]] = 1
 
         pairs = graph['left_pairs']
         if len(pairs) > 0:
-            mat = np.zeros((num_lanes, num_lanes),dtype=np.float)
+            mat = np.zeros((num_lanes, num_lanes),dtype=float)
             mat[pairs[:, 0], pairs[:, 1]] = 1
             mat = (np.matmul(mat, pre) + np.matmul(mat, suc) + mat) > 0.5
 
@@ -398,7 +398,7 @@ class PreprocessDataset(Dataset):
 
         pairs = graph['right_pairs']
         if len(pairs) > 0:
-            mat = np.zeros((num_lanes, num_lanes),dtype=np.float)
+            mat = np.zeros((num_lanes, num_lanes),dtype=float)
             mat[pairs[:, 0], pairs[:, 1]] = 1
             mat = (np.matmul(mat, pre) + np.matmul(mat, suc) + mat) > 0.5
 
@@ -579,11 +579,11 @@ class ArgoDataset(PreprocessDataset):
             new_data['theta'] = theta
             new_data['rot'] = np.asarray([
                 [np.cos(theta), -np.sin(theta)],
-                [np.sin(theta), np.cos(theta)]], np.float32)
+                [np.sin(theta), np.cos(theta)]], float)
 
             rot = np.asarray([
                 [np.cos(-dt), -np.sin(-dt)],
-                [np.sin(-dt), np.cos(-dt)]], np.float32)
+                [np.sin(-dt), np.cos(-dt)]], float)
             new_data['feats'] = data['feats'].copy()
             new_data['feats'][:, :, :2] = np.matmul(new_data['feats'][:, :, :2], rot)
             new_data['ctrs'] = np.matmul(data['ctrs'], rot)
