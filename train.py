@@ -20,9 +20,10 @@ from torch.utils.data import Sampler, DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from models.lanegcn import Net, Loss, PostProcess
-from data import ArgoDataset, collate_fn
+from data import ArgoDataset
 from utils.log import Logger
 from utils.torch_utils import gpu, to_long, load_pretrain,select_device,to_device
+from utils.data import collate_fn
 from utils.optim import Optimizer, StepLR
 from utils.general import worker_init_fn, increment_path, save_ckpt,set_logging
 

@@ -23,3 +23,16 @@ if [ $? -eq 0 ];then
 fi
 
 shutdown
+
+# 监控某程序是否跑完
+# flag=1
+# while [ "$flag" -eq 1 ]
+# do
+#     sleep 10s
+#     PID=7403
+#     PID_EXIST=$(ps u | awk '{print $2}' | grep -w $PID)
+#     if [ ! $PID_EXIST ];then
+#         echo "process is finished"
+#         flag=0
+#     fi
+# done
