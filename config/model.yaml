@@ -9,8 +9,8 @@ lr_epochs : [32]
 lr_func : StepLR(config["lr"], config["lr_epochs"])
 
 batch_size : 128
-workers : 16
-val_workers : 0
+workers : 4
+val_workers : 4
 
 
 # """Model"""

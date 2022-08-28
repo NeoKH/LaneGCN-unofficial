@@ -1,15 +1,13 @@
 import numpy as np
 import os
-import sys
 from fractions import gcd
-from numbers import Number
 
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
 # from data import ArgoDataset, collate_fn
-from utils.torch_utils import gpu, to_long
+from utils.torch_utils import  to_long
 
 from models.layers import Conv1d, Res1d, Linear, LinearRes, Null
 from numpy import float64, ndarray
@@ -258,8 +256,6 @@ class MapNet(nn.Module):
                 if key.startswith("pre") or key.startswith("suc"):
                     k1 = key[:3]
                     k2 = int(key[3:])
-                    print(k1)
-                    print(k2)
                     temp.index_add_(
                         0,
                         graph[k1][k2]["u"],
@@ -753,8 +749,8 @@ class PostProcess(nn.Module):
     def forward(self, out,data):
         post_out = dict()
         post_out["preds"] = [x[0:1].detach().cpu().numpy() for x in out["reg"]]
-        post_out["gt_preds"] = [x[0:1].numpy() for x in data["gt_preds"]]
-        post_out["has_preds"] = [x[0:1].numpy() for x in data["has_preds"]]
+        post_out["gt_preds"] = [x[0:1].detach().cpu().numpy() for x in data["gt_preds"]]
+        post_out["has_preds"] = [x[0:1].detach().cpu().numpy() for x in data["has_preds"]]
         return post_out
 
     def append(self, metrics: Dict, loss_out: Dict, post_out: Optional[Dict[str, List[ndarray]]]=None) -> Dict:

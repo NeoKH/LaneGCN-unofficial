@@ -1,34 +1,23 @@
 import argparse
-import logging
 import yaml
 from tqdm import tqdm
-import numpy as np
-import random
 import os
 import sys
 import time
-import shutil
 from pathlib import Path
-from importlib import import_module
-from numbers import Number
 
-from fractions import gcd
 import torch
-from torch import Tensor, nn, optim
-from torch.nn import functional as F
-from torch.utils.data import Sampler, DataLoader
-from torch.utils.data.distributed import DistributedSampler
-
-from models.lanegcn import Net, Loss, PostProcess
-from data import ArgoDataset,create_dataloader
-from utils.log import Logger
-from utils.torch_utils import gpu, to_long, load_pretrain,select_device,to_device,init_seeds
-from utils.data import collate_fn
-from utils.optim import Optimizer, StepLR
-from utils.general import increment_path, save_ckpt,set_logging,ROOT
-
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+
+from utils.log import Logger
+from utils.optim import Optimizer
+from models.lanegcn import Net, Loss, PostProcess
+from data import create_dataloader
+from utils.torch_utils import select_device,to_device,init_seeds
+from utils.general import increment_path, save_ckpt,ROOT
+
+
 
 LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))
 RANK = int(os.getenv('RANK', -1))
@@ -36,6 +25,9 @@ WORLD_SIZE = int(os.getenv('WORLD_SIZE', 1))
 
 def main(args):
     # check path
+    print("LOCAL_RANK: ",LOCAL_RANK)
+    print("RANK: ",RANK)
+    print("WORLD_SIZE: ",WORLD_SIZE)
     assert os.path.exists(args.model_config)
     assert os.path.exists(args.data_config)
     with open(args.model_config,"r",encoding="utf-8") as f:
@@ -65,8 +57,8 @@ def main(args):
     model = Net(config).to(device)
     if cuda and RANK != -1:
         model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK)
-    loss = Loss(config).to(device)
-    post_process = PostProcess(config).to(device)
+    loss = Loss(config)#.to(device)
+    post_process = PostProcess(config)#.to(device)
     
     params = model.parameters()
     opt = Optimizer(params,config)
@@ -123,13 +115,13 @@ def main(args):
             opt.zero_grad()
             loss_out["loss"].backward()
             lr = opt.step(epoch)
-
+            
             post_out = post_process(output,data)
             post_process.append(metrics,loss_out,post_out)
 
             if RANK in [-1,0]:
                 # Display metrics
-                if epoch*num_batches+i % config["display_iters"] == 0:
+                if (epoch*num_batches+i+1) % config["display_iters"] == 0:
                     delta_time = time.time() - start_time
                     post_process.display(metrics, delta_time, epoch, i, lr, model_type="train")
                     metrics = dict()

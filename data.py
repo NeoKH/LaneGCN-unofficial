@@ -4,9 +4,10 @@ import os
 import yaml
 import copy
 import torch
-import pickle,gzip
+import pickle
 import numpy as np
 import argparse
+from pathlib import Path
 from tqdm import tqdm
 from torch.utils.data import Dataset,DataLoader
 from torch.utils.data.distributed import DistributedSampler
@@ -551,11 +552,16 @@ class PreprocessDataset(Dataset):
             nbrs.append(nbr)
         return nbrs
 
-class ArgoDataset(PreprocessDataset):
+class ArgoDataset(Dataset):
     def __init__(self, data_type, config):
         self.data_type= data_type if data_type!="test" else "test_obs"
         self.save_path = os.path.join(config["save_path"],self.data_type)
         assert os.path.exists(self.save_path)
+        self.config = config
+        self.length = 0
+        for x in Path(self.save_path).iterdir():
+            if x.is_file() and x.suffix == ".pkl":
+                self.length+=1
         # super(ArgoDataset,self).__init__(data_type=data_type,config=config)
         
     def __getitem__(self, idx):
@@ -563,6 +569,11 @@ class ArgoDataset(PreprocessDataset):
         with open(file_path,'rb') as f:
             data = pickle.load(f)
         
+        rot = np.asarray([
+            [np.cos(data["theta"]), -np.sin(data["theta"])],
+            [np.sin(data["theta"]), np.cos(data["theta"])]], float)
+        data["rot"] = rot
+
         if self.data_type == "train" and self.config['rot_aug']:
             new_data = dict()
             for key in ['city', 'orig', 'gt_preds', 'has_preds']:
