@@ -79,10 +79,10 @@ class Net(nn.Module):
 
 def actor_gather(actors: List[Tensor]) -> Tuple[Tensor, List[Tensor]]:
     batch_size = len(actors)
-    num_actors = [len(x) for x in actors]
+    num_actors = [len(x) for x in actors] # X: Nx20x3
 
-    actors = [x.transpose(1, 2) for x in actors]
-    actors = torch.cat(actors, 0)
+    actors = [x.transpose(1, 2) for x in actors] # X: Nx3x20
+    actors = torch.cat(actors, 0) # actors: Mx3x30, where M=B1xN1+B2xN2...
 
     actor_idcs = []
     count = 0
@@ -170,19 +170,17 @@ class ActorNet(nn.Module):
         self.output = Res1d(n, n, norm=norm, ng=ng)
 
     def forward(self, actors: Tensor) -> Tensor:
-        out = actors
+        out = actors # Mx3x20
 
         outputs = []
         for i in range(len(self.groups)):
             out = self.groups[i](out)
             outputs.append(out)
-
         out = self.lateral[-1](outputs[-1])
         for i in range(len(outputs) - 2, -1, -1):
             out = F.interpolate(out, scale_factor=2, mode="linear", align_corners=False)
             out += self.lateral[i](outputs[i])
-
-        out = self.output(out)[:, :, -1]
+        out = self.output(out)[:, :, -1] # TODO: 只取最后一列,前面19列不就浪费了吗
         return out
 
 class MapNet(nn.Module):
@@ -239,7 +237,7 @@ class MapNet(nn.Module):
             temp = graph["feats"]
             return (
                 temp.new().resize_(0),
-                [temp.new().long().resize_(0) for x in graph["node_idcs"]],
+                [temp.new().long().resize_(0) for x in graph["node_idcs"]], # TODO: node_idcs=>idcs
                 temp.new().resize_(0),
             )
 
@@ -282,6 +280,7 @@ class MapNet(nn.Module):
             feat += res
             feat = self.relu(feat)
             res = feat
+        
         return feat, graph["idcs"], graph["ctrs"]
 
 class A2M(nn.Module):

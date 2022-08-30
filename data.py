@@ -555,8 +555,12 @@ class PreprocessDataset(Dataset):
 class ArgoDataset(Dataset):
     def __init__(self, data_type, config):
         self.data_type= data_type if data_type!="test" else "test_obs"
+        self.raw_path = os.path.join(config["raw_path"],self.data_type)
         self.save_path = os.path.join(config["save_path"],self.data_type)
         assert os.path.exists(self.save_path)
+        self.avl = ArgoverseForecastingLoader(self.raw_path)
+        self.avl.seq_list = sorted(self.avl.seq_list)
+        self.am = ArgoverseMap()
         self.config = config
         self.length = 0
         for x in Path(self.save_path).iterdir():
@@ -574,33 +578,38 @@ class ArgoDataset(Dataset):
             [np.sin(data["theta"]), np.cos(data["theta"])]], float)
         data["rot"] = rot
 
-        if self.data_type == "train" and self.config['rot_aug']:
-            new_data = dict()
-            for key in ['city', 'orig', 'gt_preds', 'has_preds']:
-                if key in data:
-                    new_data[key] = ref_copy(data[key])
+        if self.data_type == "test_obs":
+            print(self.avl)
+            data['argo_id'] = int(self.avl.seq_list[idx].name[:-4])
+            data['city'] = self.avl[idx].city
+        
+        # if self.data_type == "train" and self.config['rot_aug']:
+        #     new_data = dict()
+        #     for key in ['city', 'orig', 'gt_preds', 'has_preds']:
+        #         if key in data:
+        #             new_data[key] = ref_copy(data[key])
 
-            dt = np.random.rand() * self.config['rot_size']#np.pi * 2.0
-            theta = data['theta'] + dt
-            new_data['theta'] = theta
-            new_data['rot'] = np.asarray([
-                [np.cos(theta), -np.sin(theta)],
-                [np.sin(theta), np.cos(theta)]], float)
+        #     dt = np.random.rand() * self.config['rot_size']#np.pi * 2.0
+        #     theta = data['theta'] + dt
+        #     new_data['theta'] = theta
+        #     new_data['rot'] = np.asarray([
+        #         [np.cos(theta), -np.sin(theta)],
+        #         [np.sin(theta), np.cos(theta)]], float)
 
-            rot = np.asarray([
-                [np.cos(-dt), -np.sin(-dt)],
-                [np.sin(-dt), np.cos(-dt)]], float)
-            new_data['feats'] = data['feats'].copy()
-            new_data['feats'][:, :, :2] = np.matmul(new_data['feats'][:, :, :2], rot)
-            new_data['ctrs'] = np.matmul(data['ctrs'], rot)
+        #     rot = np.asarray([
+        #         [np.cos(-dt), -np.sin(-dt)],
+        #         [np.sin(-dt), np.cos(-dt)]], float)
+        #     new_data['feats'] = data['feats'].copy()
+        #     new_data['feats'][:, :, :2] = np.matmul(new_data['feats'][:, :, :2], rot)
+        #     new_data['ctrs'] = np.matmul(data['ctrs'], rot)
 
-            graph = dict()
-            for key in ['num_nodes', 'turn', 'control', 'intersect', 'pre', 'suc', 'lane_idcs', 'left_pairs', 'right_pairs', 'left', 'right']:
-                graph[key] = ref_copy(data['graph'][key])
-            graph['ctrs'] = np.matmul(data['graph']['ctrs'], rot)
-            graph['feats'] = np.matmul(data['graph']['feats'], rot)
-            new_data['graph'] = graph
-            data = new_data
+        #     graph = dict()
+        #     for key in ['num_nodes', 'turn', 'control', 'intersect', 'pre', 'suc', 'lane_idcs', 'left_pairs', 'right_pairs', 'left', 'right']:
+        #         graph[key] = ref_copy(data['graph'][key])
+        #     graph['ctrs'] = np.matmul(data['graph']['ctrs'], rot)
+        #     graph['feats'] = np.matmul(data['graph']['feats'], rot)
+        #     new_data['graph'] = graph
+        #     data = new_data
         # else:
         #     new_data = dict()
         #     for key in ['city', 'orig', 'gt_preds', 'has_preds', 'theta', 'rot', 'feats', 'ctrs', 'graph']:
@@ -608,18 +617,19 @@ class ArgoDataset(Dataset):
         #             new_data[key] = ref_copy(data[key])
         #     data = new_data
         
-        if 'raster' in self.config and self.config['raster']:
-            data.pop('graph')
-            x_min, x_max, y_min, y_max = self.config['pred_range']
-            cx, cy = data['orig']
-            region = [cx + x_min, cx + x_max, cy + y_min, cy + y_max]
-            raster = self.map_query.query(region, data['theta'], data['city'])
-            data['raster'] = raster
+        # if 'raster' in self.config and self.config['raster']:
+        #     data.pop('graph')
+        #     x_min, x_max, y_min, y_max = self.config['pred_range']
+        #     cx, cy = data['orig']
+        #     region = [cx + x_min, cx + x_max, cy + y_min, cy + y_max]
+        #     raster = self.map_query.query(region, data['theta'], data['city'])
+        #     data['raster'] = raster
 
         return data
 
     def __len__(self):
         return self.length
+
 
 def preprocess(args):
     """ use raw data to generate preprocess data """
@@ -640,14 +650,21 @@ def preprocess(args):
         pin_memory=False,
         drop_last=False,
     )
-    for i,data in enumerate(tqdm(loader)):
-        length = len(data)
+    for i in tqdm(range(dataset.__len__())):
         if args.start_iter>0:
-            if (i+1) * args.batch_size < args.start_iter:
+            if i < args.start_iter:
                 continue
-        for j in range(length):
-            with open(f"{dataset.save_path}/{i*length+j}.pkl","wb") as f:
-                pickle.dump(to_numpy(data[j]),f)
+        data = dataset.__getitem__(i)
+        with open(f"{dataset.save_path}/{i}.pkl","wb") as f:
+                pickle.dump(data,f)
+
+    # for i,data in enumerate(tqdm(loader)):
+    #     if args.start_iter>0:
+    #         if (i+1) * args.batch_size < args.start_iter:
+    #             continue
+    #     for j in range(len(data)):
+    #         with open(f"{dataset.save_path}/{i*len(data)+j}.pkl","wb") as f:
+    #             pickle.dump(to_numpy(data[j]),f)
 
 def create_dataloader(data_type,batch_size,workers,rank,shuffle,config):
     # with torch_distributed_zero_first(rank):

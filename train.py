@@ -25,9 +25,9 @@ WORLD_SIZE = int(os.getenv('WORLD_SIZE', 1))
 
 def main(args):
     # check path
-    print("LOCAL_RANK: ",LOCAL_RANK)
-    print("RANK: ",RANK)
-    print("WORLD_SIZE: ",WORLD_SIZE)
+    # print("LOCAL_RANK: ",LOCAL_RANK)
+    # print("RANK: ",RANK)
+    # print("WORLD_SIZE: ",WORLD_SIZE)
     assert os.path.exists(args.model_config)
     assert os.path.exists(args.data_config)
     with open(args.model_config,"r",encoding="utf-8") as f:
